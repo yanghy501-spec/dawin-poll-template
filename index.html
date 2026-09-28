@@ -1,0 +1,888 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>실시간 인터랙티브 투표</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+:root{
+  --bg:#0A0E1A; --panel:#141B2E; --panel2:#1C2540; --line:#2A3555;
+  --tx:#F2F5FF; --tx2:#9AA7C7; --tx3:#6B7899;
+  --ac:#4F7BFF; --ac2:#22D3A7; --ac3:#FFB020; --ac4:#FF5C7A;
+  --r:16px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;height:100%}
+body{
+  background:var(--bg); color:var(--tx);
+  font-family:Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","맑은 고딕",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased; overscroll-behavior:none;
+}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,textarea,select{font-family:inherit}
+.hide{display:none !important}
+
+/* ---------- 공통 ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  padding:12px 18px;border-radius:12px;background:var(--panel2);color:var(--tx);
+  font-size:15px;font-weight:600;border:1px solid var(--line);transition:.15s}
+.btn:hover{background:#26325a}
+.btn.pri{background:var(--ac);border-color:var(--ac);color:#fff}
+.btn.pri:hover{background:#3d68ee}
+.btn.ok{background:var(--ac2);border-color:var(--ac2);color:#04241B}
+.btn.warn{background:transparent;border-color:#4a3a2a;color:var(--ac3)}
+.btn.danger{background:transparent;border-color:#4a2a34;color:var(--ac4)}
+.btn.sm{padding:8px 12px;font-size:13px;border-radius:10px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.inp{width:100%;padding:13px 14px;border-radius:12px;border:1px solid var(--line);
+  background:#0F1526;color:var(--tx);font-size:15px;outline:none}
+.inp:focus{border-color:var(--ac)}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;
+  background:rgba(79,123,255,.14);color:#9DB5FF;font-size:12px;font-weight:700;letter-spacing:.2px}
+.chip.g{background:rgba(34,211,167,.14);color:#5FE9C4}
+.chip.o{background:rgba(255,176,32,.14);color:#FFC85C}
+.muted{color:var(--tx2)}
+.tiny{font-size:12px;color:var(--tx3)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+.row{display:flex;gap:10px;align-items:center}
+.wrap{flex-wrap:wrap}
+.grow{flex:1}
+.center{display:flex;align-items:center;justify-content:center}
+
+/* ---------- 셋업 / 홈 ---------- */
+.shell{max-width:900px;margin:0 auto;padding:24px 18px 80px}
+.brand{display:flex;align-items:center;gap:11px;margin:8px 0 22px}
+.logo{width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,var(--ac),var(--ac2));
+  display:flex;align-items:center;justify-content:center;font-weight:900;font-size:17px;color:#fff}
+.brand h1{font-size:19px;margin:0;font-weight:800;letter-spacing:-.3px}
+.brand p{margin:2px 0 0;font-size:12.5px;color:var(--tx3)}
+.sec{margin-bottom:14px}
+.sec h2{font-size:14px;margin:0 0 10px;color:var(--tx2);font-weight:700;letter-spacing:.2px}
+code.k{background:#0F1526;border:1px solid var(--line);border-radius:8px;padding:2px 7px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;color:#8FD8FF;word-break:break-all}
+pre.k{background:#0B1120;border:1px solid var(--line);border-radius:12px;padding:14px;overflow:auto;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;color:#8FD8FF;line-height:1.6;margin:0}
+
+/* ---------- 질문 편집 ---------- */
+.qitem{display:flex;gap:12px;align-items:flex-start;padding:14px;border-radius:14px;
+  background:var(--panel);border:1px solid var(--line);margin-bottom:9px}
+.qnum{width:28px;height:28px;border-radius:9px;background:var(--panel2);display:flex;
+  align-items:center;justify-content:center;font-size:13px;font-weight:800;color:var(--tx2);flex:none}
+.qbody{flex:1;min-width:0}
+.qtitle{font-size:15px;font-weight:700;margin-bottom:5px;line-height:1.35;word-break:keep-all}
+.qmeta{display:flex;gap:6px;flex-wrap:wrap}
+.qacts{display:flex;gap:4px;flex:none}
+.iconbtn{width:32px;height:32px;border-radius:9px;background:var(--panel2);border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--tx2)}
+.iconbtn:hover{color:var(--tx);background:#26325a}
+
+/* ---------- 모달 ---------- */
+.modal{position:fixed;inset:0;background:rgba(4,7,15,.78);backdrop-filter:blur(6px);
+  z-index:100;display:flex;align-items:flex-start;justify-content:center;padding:20px;overflow:auto}
+.modal .box{background:var(--panel);border:1px solid var(--line);border-radius:20px;
+  width:100%;max-width:620px;padding:22px;margin:auto}
+.modal h3{margin:0 0 16px;font-size:17px;font-weight:800}
+.fld{margin-bottom:13px}
+.fld label{display:block;font-size:12.5px;font-weight:700;color:var(--tx2);margin-bottom:6px}
+.typegrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.typebtn{padding:13px 12px;border-radius:13px;background:#0F1526;border:1.5px solid var(--line);text-align:left}
+.typebtn.on{border-color:var(--ac);background:rgba(79,123,255,.12)}
+.typebtn b{display:block;font-size:14px;margin-bottom:3px}
+.typebtn span{font-size:11.5px;color:var(--tx3);line-height:1.4}
+
+/* ---------- 진행(발표) 화면 ---------- */
+.stage{height:100dvh;display:flex;flex-direction:column;padding:22px 26px;gap:16px}
+.stagetop{display:flex;align-items:center;gap:14px;flex:none}
+.stagetop .pill{font-size:13px;font-weight:700;color:var(--tx2)}
+.stagemain{flex:1;display:flex;gap:22px;min-height:0}
+.side{width:290px;flex:none;display:flex;flex-direction:column;gap:12px}
+.qrbox{background:#fff;border-radius:18px;padding:14px;display:flex;align-items:center;justify-content:center}
+.qrbox img,.qrbox canvas{display:block;width:100%;height:auto;max-width:230px}
+.joinurl{font-size:13.5px;font-weight:700;color:#8FD8FF;word-break:break-all;text-align:center;line-height:1.45}
+.codebig{font-size:34px;font-weight:900;letter-spacing:4px;text-align:center;color:var(--tx);
+  background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px}
+.counter{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px;text-align:center}
+.counter .n{font-size:46px;font-weight:900;line-height:1;letter-spacing:-1px}
+.counter .l{font-size:12px;color:var(--tx3);margin-top:5px;font-weight:700}
+.mainpanel{flex:1;display:flex;flex-direction:column;min-width:0;
+  background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:26px 30px}
+.qhead{font-size:clamp(22px,2.6vw,40px);font-weight:800;line-height:1.28;letter-spacing:-.5px;
+  margin:0 0 20px;word-break:keep-all;flex:none}
+.viz{flex:1;min-height:0;overflow:auto}
+.viz.choice,.viz.scale,.viz.empty{display:flex;flex-direction:column;justify-content:center}
+.viz.word{display:flex;align-items:center}
+.viz::-webkit-scrollbar{width:8px}
+.viz::-webkit-scrollbar-thumb{background:#2A3555;border-radius:9px}
+.stagebar{flex:none;display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+
+/* 막대 */
+.bar{margin-bottom:14px}
+.barlbl{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:6px}
+.barlbl .t{font-size:clamp(15px,1.5vw,21px);font-weight:700;word-break:keep-all}
+.barlbl .v{font-size:clamp(15px,1.5vw,21px);font-weight:900;flex:none;color:var(--tx)}
+.barlbl .v small{font-size:.62em;color:var(--tx3);font-weight:700;margin-left:6px}
+.bartrack{height:clamp(20px,2.2vw,32px);background:#0F1526;border-radius:9px;overflow:hidden}
+.barfill{height:100%;border-radius:9px;transition:width .55s cubic-bezier(.2,.8,.3,1);min-width:3px}
+
+/* 척도 */
+.scalewrap{display:flex;gap:10px;align-items:flex-end;flex:1;max-height:56vh;min-height:150px;margin-bottom:18px}
+.scalecol{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:8px;height:100%}
+.scalebar{width:100%;border-radius:11px 11px 4px 4px;transition:height .55s cubic-bezier(.2,.8,.3,1);min-height:4px}
+.scalen{font-size:15px;font-weight:800;color:var(--tx2)}
+.avgbox{display:flex;align-items:baseline;gap:14px;padding:16px 20px;background:#0F1526;border-radius:16px;border:1px solid var(--line)}
+.avgbox .big{font-size:clamp(36px,4.5vw,62px);font-weight:900;line-height:1;color:var(--ac2);letter-spacing:-2px}
+
+/* 워드클라우드 */
+.cloud{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center;justify-content:center;
+  align-content:center;min-height:100%;padding:10px}
+.word{font-weight:800;line-height:1.15;letter-spacing:-.5px;word-break:keep-all;
+  animation:pop .45s cubic-bezier(.2,1.3,.4,1) both}
+.word small{font-size:.42em;opacity:.55;margin-left:4px;font-weight:700;vertical-align:super}
+@keyframes pop{from{opacity:0;transform:scale(.55)}to{opacity:1;transform:scale(1)}}
+
+/* 의견 보드 */
+.board{column-gap:14px;column-count:3}
+@media(max-width:1400px){.board{column-count:2}}
+.note{break-inside:avoid;margin-bottom:14px;padding:15px 17px;border-radius:15px;
+  background:#0F1526;border:1px solid var(--line);border-left-width:4px;
+  font-size:clamp(14px,1.25vw,18px);line-height:1.55;word-break:keep-all;
+  animation:rise .4s cubic-bezier(.2,.9,.3,1) both}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.note .when{display:block;margin-top:8px;font-size:11px;color:var(--tx3);font-weight:700}
+
+.blind{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--tx3)}
+.blind .em{font-size:64px}
+.blind .m{font-size:19px;font-weight:700}
+
+/* ---------- 참가자 ---------- */
+.pv{min-height:100dvh;background:#F6F8FD;color:#101828;display:flex;flex-direction:column}
+.pvtop{background:#fff;border-bottom:1px solid #E4E9F2;padding:13px 18px;display:flex;
+  align-items:center;justify-content:space-between;gap:10px;position:sticky;top:0;z-index:10}
+.pvtop .rc{font-size:13px;font-weight:800;color:#5B6B8C;letter-spacing:1.5px}
+.pvtop .anon{font-size:11.5px;font-weight:800;color:#0E9F6E;background:#E6FAF3;padding:5px 10px;border-radius:999px}
+.pvbody{flex:1;padding:22px 18px 40px;max-width:640px;width:100%;margin:0 auto}
+.pvq{font-size:23px;font-weight:800;line-height:1.4;margin:0 0 6px;word-break:keep-all;letter-spacing:-.4px}
+.pvsub{font-size:14px;color:#6B7A99;margin:0 0 22px;line-height:1.5;word-break:keep-all}
+.opt{width:100%;text-align:left;padding:17px 18px;border-radius:15px;background:#fff;
+  border:2px solid #E4E9F2;font-size:16.5px;font-weight:600;color:#101828;margin-bottom:10px;
+  display:flex;align-items:center;gap:13px;line-height:1.4;word-break:keep-all;transition:.14s}
+.opt .dot{width:22px;height:22px;border-radius:50%;border:2px solid #C5CEDF;flex:none}
+.opt.on{border-color:#3B6BF5;background:#EFF4FF}
+.opt.on .dot{border-color:#3B6BF5;background:#3B6BF5;box-shadow:inset 0 0 0 3.5px #fff}
+.scaleopts{display:flex;gap:9px;margin-bottom:14px}
+.sopt{flex:1;aspect-ratio:1/1.08;border-radius:15px;background:#fff;border:2px solid #E4E9F2;
+  font-size:21px;font-weight:800;color:#101828;display:flex;align-items:center;justify-content:center}
+.sopt.on{border-color:#3B6BF5;background:#3B6BF5;color:#fff}
+.scalelbl{display:flex;justify-content:space-between;font-size:12.5px;color:#6B7A99;font-weight:700;margin-bottom:24px}
+.pinp{width:100%;padding:16px;border-radius:15px;border:2px solid #E4E9F2;background:#fff;
+  font-size:16.5px;color:#101828;outline:none;margin-bottom:10px}
+.pinp:focus{border-color:#3B6BF5}
+textarea.pinp{min-height:130px;resize:vertical;line-height:1.55}
+.pbtn{width:100%;padding:17px;border-radius:15px;background:#3B6BF5;color:#fff;
+  font-size:17px;font-weight:800;box-shadow:0 6px 18px rgba(59,107,245,.28)}
+.pbtn:disabled{background:#C5CEDF;box-shadow:none}
+.pbtn.ghost{background:#fff;color:#3B6BF5;border:2px solid #D6E0F7;box-shadow:none}
+.done{text-align:center;padding:50px 20px}
+.done .ic{width:78px;height:78px;border-radius:50%;background:#E6FAF3;color:#0E9F6E;font-size:38px;
+  display:flex;align-items:center;justify-content:center;margin:0 auto 20px}
+.done h2{font-size:22px;margin:0 0 8px;font-weight:800}
+.done p{color:#6B7A99;font-size:14.5px;margin:0;line-height:1.6}
+.mytag{display:inline-block;margin-top:16px;padding:9px 15px;border-radius:12px;background:#F0F3FA;
+  font-size:14px;font-weight:700;color:#31415F;max-width:100%;word-break:keep-all}
+.waitbox{text-align:center;padding:70px 20px}
+.pulse{width:56px;height:56px;border-radius:50%;background:#3B6BF5;margin:0 auto 22px;
+  animation:pl 1.6s ease-in-out infinite;opacity:.85}
+@keyframes pl{0%,100%{transform:scale(.7);opacity:.35}50%{transform:scale(1);opacity:.9}}
+.wordchips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.wchip{padding:9px 14px;border-radius:999px;background:#EFF4FF;color:#2B4FBF;font-size:14.5px;font-weight:700}
+
+/* 참가자 결과 미니뷰 */
+.mres{margin-top:26px;padding-top:22px;border-top:1px solid #E4E9F2}
+.mres h4{font-size:13px;color:#6B7A99;margin:0 0 14px;font-weight:800}
+.mbar{margin-bottom:11px}
+.mbarl{display:flex;justify-content:space-between;font-size:14px;font-weight:700;margin-bottom:5px}
+.mbart{height:11px;background:#E9EEF8;border-radius:6px;overflow:hidden}
+.mbarf{height:100%;border-radius:6px;transition:width .5s}
+
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:200;
+  background:#101828;color:#fff;padding:13px 20px;border-radius:13px;font-size:14px;font-weight:700;
+  box-shadow:0 10px 30px rgba(0,0,0,.3);animation:tin .25s both}
+@keyframes tin{from{opacity:0;transform:translate(-50%,14px)}to{opacity:1;transform:translate(-50%,0)}}
+
+@media(max-width:860px){
+  .stage{padding:14px}
+  .stagemain{flex-direction:column;gap:12px}
+  .side{width:100%;flex-direction:row;flex-wrap:wrap}
+  .qrbox{max-width:150px}
+  .mainpanel{padding:18px}
+  .board{column-count:1}
+  .typegrid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this.parsedData=[];for(var b=[],d=0,e=this.data.length;e>d;d++){var f=this.data.charCodeAt(d);f>65536?(b[0]=240|(1835008&f)>>>18,b[1]=128|(258048&f)>>>12,b[2]=128|(4032&f)>>>6,b[3]=128|63&f):f>2048?(b[0]=224|(61440&f)>>>12,b[1]=128|(4032&f)>>>6,b[2]=128|63&f):f>128?(b[0]=192|(1984&f)>>>6,b[1]=128|63&f):b[0]=f,this.parsedData=this.parsedData.concat(b)}this.parsedData.length!=this.data.length&&(this.parsedData.unshift(191),this.parsedData.unshift(187),this.parsedData.unshift(239))}function b(a,b){this.typeNumber=a,this.errorCorrectLevel=b,this.modules=null,this.moduleCount=0,this.dataCache=null,this.dataList=[]}function i(a,b){if(void 0==a.length)throw new Error(a.length+"/"+b);for(var c=0;c<a.length&&0==a[c];)c++;this.num=new Array(a.length-c+b);for(var d=0;d<a.length-c;d++)this.num[d]=a[d+c]}function j(a,b){this.totalCount=a,this.dataCount=b}function k(){this.buffer=[],this.length=0}function m(){return"undefined"!=typeof CanvasRenderingContext2D}function n(){var a=!1,b=navigator.userAgent;return/android/i.test(b)&&(a=!0,aMat=b.toString().match(/android ([0-9]\.[0-9])/i),aMat&&aMat[1]&&(a=parseFloat(aMat[1]))),a}function r(a,b){for(var c=1,e=s(a),f=0,g=l.length;g>=f;f++){var h=0;switch(b){case d.L:h=l[f][0];break;case d.M:h=l[f][1];break;case d.Q:h=l[f][2];break;case d.H:h=l[f][3]}if(h>=e)break;c++}if(c>l.length)throw new Error("Too long data");return c}function s(a){var b=encodeURI(a).toString().replace(/\%[0-9a-fA-F]{2}/g,"a");return b.length+(b.length!=a?3:0)}a.prototype={getLength:function(){return this.parsedData.length},write:function(a){for(var b=0,c=this.parsedData.length;c>b;b++)a.put(this.parsedData[b],8)}},b.prototype={addData:function(b){var c=new a(b);this.dataList.push(c),this.dataCache=null},isDark:function(a,b){if(0>a||this.moduleCount<=a||0>b||this.moduleCount<=b)throw new Error(a+","+b);return this.modules[a][b]},getModuleCount:function(){return this.moduleCount},make:function(){this.makeImpl(!1,this.getBestMaskPattern())},makeImpl:function(a,c){this.moduleCount=4*this.typeNumber+17,this.modules=new Array(this.moduleCount);for(var d=0;d<this.moduleCount;d++){this.modules[d]=new Array(this.moduleCount);for(var e=0;e<this.moduleCount;e++)this.modules[d][e]=null}this.setupPositionProbePattern(0,0),this.setupPositionProbePattern(this.moduleCount-7,0),this.setupPositionProbePattern(0,this.moduleCount-7),this.setupPositionAdjustPattern(),this.setupTimingPattern(),this.setupTypeInfo(a,c),this.typeNumber>=7&&this.setupTypeNumber(a),null==this.dataCache&&(this.dataCache=b.createData(this.typeNumber,this.errorCorrectLevel,this.dataList)),this.mapData(this.dataCache,c)},setupPositionProbePattern:function(a,b){for(var c=-1;7>=c;c++)if(!(-1>=a+c||this.moduleCount<=a+c))for(var d=-1;7>=d;d++)-1>=b+d||this.moduleCount<=b+d||(this.modules[a+c][b+d]=c>=0&&6>=c&&(0==d||6==d)||d>=0&&6>=d&&(0==c||6==c)||c>=2&&4>=c&&d>=2&&4>=d?!0:!1)},getBestMaskPattern:function(){for(var a=0,b=0,c=0;8>c;c++){this.makeImpl(!0,c);var d=f.getLostPoint(this);(0==c||a>d)&&(a=d,b=c)}return b},createMovieClip:function(a,b,c){var d=a.createEmptyMovieClip(b,c),e=1;this.make();for(var f=0;f<this.modules.length;f++)for(var g=f*e,h=0;h<this.modules[f].length;h++){var i=h*e,j=this.modules[f][h];j&&(d.beginFill(0,100),d.moveTo(i,g),d.lineTo(i+e,g),d.lineTo(i+e,g+e),d.lineTo(i,g+e),d.endFill())}return d},setupTimingPattern:function(){for(var a=8;a<this.moduleCount-8;a++)null==this.modules[a][6]&&(this.modules[a][6]=0==a%2);for(var b=8;b<this.moduleCount-8;b++)null==this.modules[6][b]&&(this.modules[6][b]=0==b%2)},setupPositionAdjustPattern:function(){for(var a=f.getPatternPosition(this.typeNumber),b=0;b<a.length;b++)for(var c=0;c<a.length;c++){var d=a[b],e=a[c];if(null==this.modules[d][e])for(var g=-2;2>=g;g++)for(var h=-2;2>=h;h++)this.modules[d+g][e+h]=-2==g||2==g||-2==h||2==h||0==g&&0==h?!0:!1}},setupTypeNumber:function(a){for(var b=f.getBCHTypeNumber(this.typeNumber),c=0;18>c;c++){var d=!a&&1==(1&b>>c);this.modules[Math.floor(c/3)][c%3+this.moduleCount-8-3]=d}for(var c=0;18>c;c++){var d=!a&&1==(1&b>>c);this.modules[c%3+this.moduleCount-8-3][Math.floor(c/3)]=d}},setupTypeInfo:function(a,b){for(var c=this.errorCorrectLevel<<3|b,d=f.getBCHTypeInfo(c),e=0;15>e;e++){var g=!a&&1==(1&d>>e);6>e?this.modules[e][8]=g:8>e?this.modules[e+1][8]=g:this.modules[this.moduleCount-15+e][8]=g}for(var e=0;15>e;e++){var g=!a&&1==(1&d>>e);8>e?this.modules[8][this.moduleCount-e-1]=g:9>e?this.modules[8][15-e-1+1]=g:this.modules[8][15-e-1]=g}this.modules[this.moduleCount-8][8]=!a},mapData:function(a,b){for(var c=-1,d=this.moduleCount-1,e=7,g=0,h=this.moduleCount-1;h>0;h-=2)for(6==h&&h--;;){for(var i=0;2>i;i++)if(null==this.modules[d][h-i]){var j=!1;g<a.length&&(j=1==(1&a[g]>>>e));var k=f.getMask(b,d,h-i);k&&(j=!j),this.modules[d][h-i]=j,e--,-1==e&&(g++,e=7)}if(d+=c,0>d||this.moduleCount<=d){d-=c,c=-c;break}}}},b.PAD0=236,b.PAD1=17,b.createData=function(a,c,d){for(var e=j.getRSBlocks(a,c),g=new k,h=0;h<d.length;h++){var i=d[h];g.put(i.mode,4),g.put(i.getLength(),f.getLengthInBits(i.mode,a)),i.write(g)}for(var l=0,h=0;h<e.length;h++)l+=e[h].dataCount;if(g.getLengthInBits()>8*l)throw new Error("code length overflow. ("+g.getLengthInBits()+">"+8*l+")");for(g.getLengthInBits()+4<=8*l&&g.put(0,4);0!=g.getLengthInBits()%8;)g.putBit(!1);for(;;){if(g.getLengthInBits()>=8*l)break;if(g.put(b.PAD0,8),g.getLengthInBits()>=8*l)break;g.put(b.PAD1,8)}return b.createBytes(g,e)},b.createBytes=function(a,b){for(var c=0,d=0,e=0,g=new Array(b.length),h=new Array(b.length),j=0;j<b.length;j++){var k=b[j].dataCount,l=b[j].totalCount-k;d=Math.max(d,k),e=Math.max(e,l),g[j]=new Array(k);for(var m=0;m<g[j].length;m++)g[j][m]=255&a.buffer[m+c];c+=k;var n=f.getErrorCorrectPolynomial(l),o=new i(g[j],n.getLength()-1),p=o.mod(n);h[j]=new Array(n.getLength()-1);for(var m=0;m<h[j].length;m++){var q=m+p.getLength()-h[j].length;h[j][m]=q>=0?p.get(q):0}}for(var r=0,m=0;m<b.length;m++)r+=b[m].totalCount;for(var s=new Array(r),t=0,m=0;d>m;m++)for(var j=0;j<b.length;j++)m<g[j].length&&(s[t++]=g[j][m]);for(var m=0;e>m;m++)for(var j=0;j<b.length;j++)m<h[j].length&&(s[t++]=h[j][m]);return s};for(var c={MODE_NUMBER:1,MODE_ALPHA_NUM:2,MODE_8BIT_BYTE:4,MODE_KANJI:8},d={L:1,M:0,Q:3,H:2},e={PATTERN000:0,PATTERN001:1,PATTERN010:2,PATTERN011:3,PATTERN100:4,PATTERN101:5,PATTERN110:6,PATTERN111:7},f={PATTERN_POSITION_TABLE:[[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54],[6,32,58],[6,34,62],[6,26,46,66],[6,26,48,70],[6,26,50,74],[6,30,54,78],[6,30,56,82],[6,30,58,86],[6,34,62,90],[6,28,50,72,94],[6,26,50,74,98],[6,30,54,78,102],[6,28,54,80,106],[6,32,58,84,110],[6,30,58,86,114],[6,34,62,90,118],[6,26,50,74,98,122],[6,30,54,78,102,126],[6,26,52,78,104,130],[6,30,56,82,108,134],[6,34,60,86,112,138],[6,30,58,86,114,142],[6,34,62,90,118,146],[6,30,54,78,102,126,150],[6,24,50,76,102,128,154],[6,28,54,80,106,132,158],[6,32,58,84,110,136,162],[6,26,54,82,110,138,166],[6,30,58,86,114,142,170]],G15:1335,G18:7973,G15_MASK:21522,getBCHTypeInfo:function(a){for(var b=a<<10;f.getBCHDigit(b)-f.getBCHDigit(f.G15)>=0;)b^=f.G15<<f.getBCHDigit(b)-f.getBCHDigit(f.G15);return(a<<10|b)^f.G15_MASK},getBCHTypeNumber:function(a){for(var b=a<<12;f.getBCHDigit(b)-f.getBCHDigit(f.G18)>=0;)b^=f.G18<<f.getBCHDigit(b)-f.getBCHDigit(f.G18);return a<<12|b},getBCHDigit:function(a){for(var b=0;0!=a;)b++,a>>>=1;return b},getPatternPosition:function(a){return f.PATTERN_POSITION_TABLE[a-1]},getMask:function(a,b,c){switch(a){case e.PATTERN000:return 0==(b+c)%2;case e.PATTERN001:return 0==b%2;case e.PATTERN010:return 0==c%3;case e.PATTERN011:return 0==(b+c)%3;case e.PATTERN100:return 0==(Math.floor(b/2)+Math.floor(c/3))%2;case e.PATTERN101:return 0==b*c%2+b*c%3;case e.PATTERN110:return 0==(b*c%2+b*c%3)%2;case e.PATTERN111:return 0==(b*c%3+(b+c)%2)%2;default:throw new Error("bad maskPattern:"+a)}},getErrorCorrectPolynomial:function(a){for(var b=new i([1],0),c=0;a>c;c++)b=b.multiply(new i([1,g.gexp(c)],0));return b},getLengthInBits:function(a,b){if(b>=1&&10>b)switch(a){case c.MODE_NUMBER:return 10;case c.MODE_ALPHA_NUM:return 9;case c.MODE_8BIT_BYTE:return 8;case c.MODE_KANJI:return 8;default:throw new Error("mode:"+a)}else if(27>b)switch(a){case c.MODE_NUMBER:return 12;case c.MODE_ALPHA_NUM:return 11;case c.MODE_8BIT_BYTE:return 16;case c.MODE_KANJI:return 10;default:throw new Error("mode:"+a)}else{if(!(41>b))throw new Error("type:"+b);switch(a){case c.MODE_NUMBER:return 14;case c.MODE_ALPHA_NUM:return 13;case c.MODE_8BIT_BYTE:return 16;case c.MODE_KANJI:return 12;default:throw new Error("mode:"+a)}}},getLostPoint:function(a){for(var b=a.getModuleCount(),c=0,d=0;b>d;d++)for(var e=0;b>e;e++){for(var f=0,g=a.isDark(d,e),h=-1;1>=h;h++)if(!(0>d+h||d+h>=b))for(var i=-1;1>=i;i++)0>e+i||e+i>=b||(0!=h||0!=i)&&g==a.isDark(d+h,e+i)&&f++;f>5&&(c+=3+f-5)}for(var d=0;b-1>d;d++)for(var e=0;b-1>e;e++){var j=0;a.isDark(d,e)&&j++,a.isDark(d+1,e)&&j++,a.isDark(d,e+1)&&j++,a.isDark(d+1,e+1)&&j++,(0==j||4==j)&&(c+=3)}for(var d=0;b>d;d++)for(var e=0;b-6>e;e++)a.isDark(d,e)&&!a.isDark(d,e+1)&&a.isDark(d,e+2)&&a.isDark(d,e+3)&&a.isDark(d,e+4)&&!a.isDark(d,e+5)&&a.isDark(d,e+6)&&(c+=40);for(var e=0;b>e;e++)for(var d=0;b-6>d;d++)a.isDark(d,e)&&!a.isDark(d+1,e)&&a.isDark(d+2,e)&&a.isDark(d+3,e)&&a.isDark(d+4,e)&&!a.isDark(d+5,e)&&a.isDark(d+6,e)&&(c+=40);for(var k=0,e=0;b>e;e++)for(var d=0;b>d;d++)a.isDark(d,e)&&k++;var l=Math.abs(100*k/b/b-50)/5;return c+=10*l}},g={glog:function(a){if(1>a)throw new Error("glog("+a+")");return g.LOG_TABLE[a]},gexp:function(a){for(;0>a;)a+=255;for(;a>=256;)a-=255;return g.EXP_TABLE[a]},EXP_TABLE:new Array(256),LOG_TABLE:new Array(256)},h=0;8>h;h++)g.EXP_TABLE[h]=1<<h;for(var h=8;256>h;h++)g.EXP_TABLE[h]=g.EXP_TABLE[h-4]^g.EXP_TABLE[h-5]^g.EXP_TABLE[h-6]^g.EXP_TABLE[h-8];for(var h=0;255>h;h++)g.LOG_TABLE[g.EXP_TABLE[h]]=h;i.prototype={get:function(a){return this.num[a]},getLength:function(){return this.num.length},multiply:function(a){for(var b=new Array(this.getLength()+a.getLength()-1),c=0;c<this.getLength();c++)for(var d=0;d<a.getLength();d++)b[c+d]^=g.gexp(g.glog(this.get(c))+g.glog(a.get(d)));return new i(b,0)},mod:function(a){if(this.getLength()-a.getLength()<0)return this;for(var b=g.glog(this.get(0))-g.glog(a.get(0)),c=new Array(this.getLength()),d=0;d<this.getLength();d++)c[d]=this.get(d);for(var d=0;d<a.getLength();d++)c[d]^=g.gexp(g.glog(a.get(d))+b);return new i(c,0).mod(a)}},j.RS_BLOCK_TABLE=[[1,26,19],[1,26,16],[1,26,13],[1,26,9],[1,44,34],[1,44,28],[1,44,22],[1,44,16],[1,70,55],[1,70,44],[2,35,17],[2,35,13],[1,100,80],[2,50,32],[2,50,24],[4,25,9],[1,134,108],[2,67,43],[2,33,15,2,34,16],[2,33,11,2,34,12],[2,86,68],[4,43,27],[4,43,19],[4,43,15],[2,98,78],[4,49,31],[2,32,14,4,33,15],[4,39,13,1,40,14],[2,121,97],[2,60,38,2,61,39],[4,40,18,2,41,19],[4,40,14,2,41,15],[2,146,116],[3,58,36,2,59,37],[4,36,16,4,37,17],[4,36,12,4,37,13],[2,86,68,2,87,69],[4,69,43,1,70,44],[6,43,19,2,44,20],[6,43,15,2,44,16],[4,101,81],[1,80,50,4,81,51],[4,50,22,4,51,23],[3,36,12,8,37,13],[2,116,92,2,117,93],[6,58,36,2,59,37],[4,46,20,6,47,21],[7,42,14,4,43,15],[4,133,107],[8,59,37,1,60,38],[8,44,20,4,45,21],[12,33,11,4,34,12],[3,145,115,1,146,116],[4,64,40,5,65,41],[11,36,16,5,37,17],[11,36,12,5,37,13],[5,109,87,1,110,88],[5,65,41,5,66,42],[5,54,24,7,55,25],[11,36,12],[5,122,98,1,123,99],[7,73,45,3,74,46],[15,43,19,2,44,20],[3,45,15,13,46,16],[1,135,107,5,136,108],[10,74,46,1,75,47],[1,50,22,15,51,23],[2,42,14,17,43,15],[5,150,120,1,151,121],[9,69,43,4,70,44],[17,50,22,1,51,23],[2,42,14,19,43,15],[3,141,113,4,142,114],[3,70,44,11,71,45],[17,47,21,4,48,22],[9,39,13,16,40,14],[3,135,107,5,136,108],[3,67,41,13,68,42],[15,54,24,5,55,25],[15,43,15,10,44,16],[4,144,116,4,145,117],[17,68,42],[17,50,22,6,51,23],[19,46,16,6,47,17],[2,139,111,7,140,112],[17,74,46],[7,54,24,16,55,25],[34,37,13],[4,151,121,5,152,122],[4,75,47,14,76,48],[11,54,24,14,55,25],[16,45,15,14,46,16],[6,147,117,4,148,118],[6,73,45,14,74,46],[11,54,24,16,55,25],[30,46,16,2,47,17],[8,132,106,4,133,107],[8,75,47,13,76,48],[7,54,24,22,55,25],[22,45,15,13,46,16],[10,142,114,2,143,115],[19,74,46,4,75,47],[28,50,22,6,51,23],[33,46,16,4,47,17],[8,152,122,4,153,123],[22,73,45,3,74,46],[8,53,23,26,54,24],[12,45,15,28,46,16],[3,147,117,10,148,118],[3,73,45,23,74,46],[4,54,24,31,55,25],[11,45,15,31,46,16],[7,146,116,7,147,117],[21,73,45,7,74,46],[1,53,23,37,54,24],[19,45,15,26,46,16],[5,145,115,10,146,116],[19,75,47,10,76,48],[15,54,24,25,55,25],[23,45,15,25,46,16],[13,145,115,3,146,116],[2,74,46,29,75,47],[42,54,24,1,55,25],[23,45,15,28,46,16],[17,145,115],[10,74,46,23,75,47],[10,54,24,35,55,25],[19,45,15,35,46,16],[17,145,115,1,146,116],[14,74,46,21,75,47],[29,54,24,19,55,25],[11,45,15,46,46,16],[13,145,115,6,146,116],[14,74,46,23,75,47],[44,54,24,7,55,25],[59,46,16,1,47,17],[12,151,121,7,152,122],[12,75,47,26,76,48],[39,54,24,14,55,25],[22,45,15,41,46,16],[6,151,121,14,152,122],[6,75,47,34,76,48],[46,54,24,10,55,25],[2,45,15,64,46,16],[17,152,122,4,153,123],[29,74,46,14,75,47],[49,54,24,10,55,25],[24,45,15,46,46,16],[4,152,122,18,153,123],[13,74,46,32,75,47],[48,54,24,14,55,25],[42,45,15,32,46,16],[20,147,117,4,148,118],[40,75,47,7,76,48],[43,54,24,22,55,25],[10,45,15,67,46,16],[19,148,118,6,149,119],[18,75,47,31,76,48],[34,54,24,34,55,25],[20,45,15,61,46,16]],j.getRSBlocks=function(a,b){var c=j.getRsBlockTable(a,b);if(void 0==c)throw new Error("bad rs block @ typeNumber:"+a+"/errorCorrectLevel:"+b);for(var d=c.length/3,e=[],f=0;d>f;f++)for(var g=c[3*f+0],h=c[3*f+1],i=c[3*f+2],k=0;g>k;k++)e.push(new j(h,i));return e},j.getRsBlockTable=function(a,b){switch(b){case d.L:return j.RS_BLOCK_TABLE[4*(a-1)+0];case d.M:return j.RS_BLOCK_TABLE[4*(a-1)+1];case d.Q:return j.RS_BLOCK_TABLE[4*(a-1)+2];case d.H:return j.RS_BLOCK_TABLE[4*(a-1)+3];default:return void 0}},k.prototype={get:function(a){var b=Math.floor(a/8);return 1==(1&this.buffer[b]>>>7-a%8)},put:function(a,b){for(var c=0;b>c;c++)this.putBit(1==(1&a>>>b-c-1))},getLengthInBits:function(){return this.length},putBit:function(a){var b=Math.floor(this.length/8);this.buffer.length<=b&&this.buffer.push(0),a&&(this.buffer[b]|=128>>>this.length%8),this.length++}};var l=[[17,14,11,7],[32,26,20,14],[53,42,32,24],[78,62,46,34],[106,84,60,44],[134,106,74,58],[154,122,86,64],[192,152,108,84],[230,180,130,98],[271,213,151,119],[321,251,177,137],[367,287,203,155],[425,331,241,177],[458,362,258,194],[520,412,292,220],[586,450,322,250],[644,504,364,280],[718,560,394,310],[792,624,442,338],[858,666,482,382],[929,711,509,403],[1003,779,565,439],[1091,857,611,461],[1171,911,661,511],[1273,997,715,535],[1367,1059,751,593],[1465,1125,805,625],[1528,1190,868,658],[1628,1264,908,698],[1732,1370,982,742],[1840,1452,1030,790],[1952,1538,1112,842],[2068,1628,1168,898],[2188,1722,1228,958],[2303,1809,1283,983],[2431,1911,1351,1051],[2563,1989,1423,1093],[2699,2099,1499,1139],[2809,2213,1579,1219],[2953,2331,1663,1273]],o=function(){var a=function(a,b){this._el=a,this._htOption=b};return a.prototype.draw=function(a){function g(a,b){var c=document.createElementNS("http://www.w3.org/2000/svg",a);for(var d in b)b.hasOwnProperty(d)&&c.setAttribute(d,b[d]);return c}var b=this._htOption,c=this._el,d=a.getModuleCount();Math.floor(b.width/d),Math.floor(b.height/d),this.clear();var h=g("svg",{viewBox:"0 0 "+String(d)+" "+String(d),width:"100%",height:"100%",fill:b.colorLight});h.setAttributeNS("http://www.w3.org/2000/xmlns/","xmlns:xlink","http://www.w3.org/1999/xlink"),c.appendChild(h),h.appendChild(g("rect",{fill:b.colorDark,width:"1",height:"1",id:"template"}));for(var i=0;d>i;i++)for(var j=0;d>j;j++)if(a.isDark(i,j)){var k=g("use",{x:String(i),y:String(j)});k.setAttributeNS("http://www.w3.org/1999/xlink","href","#template"),h.appendChild(k)}},a.prototype.clear=function(){for(;this._el.hasChildNodes();)this._el.removeChild(this._el.lastChild)},a}(),p="svg"===document.documentElement.tagName.toLowerCase(),q=p?o:m()?function(){function a(){this._elImage.src=this._elCanvas.toDataURL("image/png"),this._elImage.style.display="block",this._elCanvas.style.display="none"}function d(a,b){var c=this;if(c._fFail=b,c._fSuccess=a,null===c._bSupportDataURI){var d=document.createElement("img"),e=function(){c._bSupportDataURI=!1,c._fFail&&_fFail.call(c)},f=function(){c._bSupportDataURI=!0,c._fSuccess&&c._fSuccess.call(c)};return d.onabort=e,d.onerror=e,d.onload=f,d.src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==",void 0}c._bSupportDataURI===!0&&c._fSuccess?c._fSuccess.call(c):c._bSupportDataURI===!1&&c._fFail&&c._fFail.call(c)}if(this._android&&this._android<=2.1){var b=1/window.devicePixelRatio,c=CanvasRenderingContext2D.prototype.drawImage;CanvasRenderingContext2D.prototype.drawImage=function(a,d,e,f,g,h,i,j){if("nodeName"in a&&/img/i.test(a.nodeName))for(var l=arguments.length-1;l>=1;l--)arguments[l]=arguments[l]*b;else"undefined"==typeof j&&(arguments[1]*=b,arguments[2]*=b,arguments[3]*=b,arguments[4]*=b);c.apply(this,arguments)}}var e=function(a,b){this._bIsPainted=!1,this._android=n(),this._htOption=b,this._elCanvas=document.createElement("canvas"),this._elCanvas.width=b.width,this._elCanvas.height=b.height,a.appendChild(this._elCanvas),this._el=a,this._oContext=this._elCanvas.getContext("2d"),this._bIsPainted=!1,this._elImage=document.createElement("img"),this._elImage.style.display="none",this._el.appendChild(this._elImage),this._bSupportDataURI=null};return e.prototype.draw=function(a){var b=this._elImage,c=this._oContext,d=this._htOption,e=a.getModuleCount(),f=d.width/e,g=d.height/e,h=Math.round(f),i=Math.round(g);b.style.display="none",this.clear();for(var j=0;e>j;j++)for(var k=0;e>k;k++){var l=a.isDark(j,k),m=k*f,n=j*g;c.strokeStyle=l?d.colorDark:d.colorLight,c.lineWidth=1,c.fillStyle=l?d.colorDark:d.colorLight,c.fillRect(m,n,f,g),c.strokeRect(Math.floor(m)+.5,Math.floor(n)+.5,h,i),c.strokeRect(Math.ceil(m)-.5,Math.ceil(n)-.5,h,i)}this._bIsPainted=!0},e.prototype.makeImage=function(){this._bIsPainted&&d.call(this,a)},e.prototype.isPainted=function(){return this._bIsPainted},e.prototype.clear=function(){this._oContext.clearRect(0,0,this._elCanvas.width,this._elCanvas.height),this._bIsPainted=!1},e.prototype.round=function(a){return a?Math.floor(1e3*a)/1e3:a},e}():function(){var a=function(a,b){this._el=a,this._htOption=b};return a.prototype.draw=function(a){for(var b=this._htOption,c=this._el,d=a.getModuleCount(),e=Math.floor(b.width/d),f=Math.floor(b.height/d),g=['<table style="border:0;border-collapse:collapse;">'],h=0;d>h;h++){g.push("<tr>");for(var i=0;d>i;i++)g.push('<td style="border:0;border-collapse:collapse;padding:0;margin:0;width:'+e+"px;height:"+f+"px;background-color:"+(a.isDark(h,i)?b.colorDark:b.colorLight)+';"></td>');g.push("</tr>")}g.push("</table>"),c.innerHTML=g.join("");var j=c.childNodes[0],k=(b.width-j.offsetWidth)/2,l=(b.height-j.offsetHeight)/2;k>0&&l>0&&(j.style.margin=l+"px "+k+"px")},a.prototype.clear=function(){this._el.innerHTML=""},a}();QRCode=function(a,b){if(this._htOption={width:256,height:256,typeNumber:4,colorDark:"#000000",colorLight:"#ffffff",correctLevel:d.H},"string"==typeof b&&(b={text:b}),b)for(var c in b)this._htOption[c]=b[c];"string"==typeof a&&(a=document.getElementById(a)),this._android=n(),this._el=a,this._oQRCode=null,this._oDrawing=new q(this._el,this._htOption),this._htOption.text&&this.makeCode(this._htOption.text)},QRCode.prototype.makeCode=function(a){this._oQRCode=new b(r(a,this._htOption.correctLevel),this._htOption.correctLevel),this._oQRCode.addData(a),this._oQRCode.make(),this._el.title=a,this._oDrawing.draw(this._oQRCode),this.makeImage()},QRCode.prototype.makeImage=function(){"function"==typeof this._oDrawing.makeImage&&(!this._android||this._android>=3)&&this._oDrawing.makeImage()},QRCode.prototype.clear=function(){this._oDrawing.clear()},QRCode.CorrectLevel=d}();</script>
+<script>
+/* ============================================================
+   실시간 인터랙티브 투표 도구
+   ------------------------------------------------------------
+   ▼▼▼ 배포 전, 아래 두 줄만 본인 Supabase 값으로 바꾸세요 ▼▼▼ */
+const CONFIG = {
+  SUPABASE_URL: "PASTE_YOUR_PROJECT_URL",
+  SUPABASE_ANON_KEY: "PASTE_YOUR_PUBLISHABLE_KEY",
+};
+/* ▲▲▲ 여기까지 ▲▲▲
+   두 번째 값은 Supabase → Project Settings → API Keys 에서
+     · Publishable key  (sb_publishable_... )   또는
+     · anon / anon public (eyJhbGciOi... )
+   둘 중 화면에 보이는 것을 넣으세요. 둘 다 동작합니다.
+   ⛔ service_role / Secret key 는 절대 넣지 마세요.
+   (위 두 키는 브라우저 공개용이라 노출돼도 안전하며 RLS로 보호됩니다.)
+   ============================================================ */
+
+const SERIES = ["#4F7BFF","#22D3A7","#FFB020","#FF5C7A","#A78BFA","#38BDF8","#F472B6","#4ADE80","#FB923C","#818CF8"];
+const $ = (s,r=document)=>r.querySelector(s);
+const app = $("#app");
+const esc = s => String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid = () => Math.random().toString(36).slice(2,10);
+const nowISO = () => new Date().toISOString();
+function toast(msg){const d=document.createElement("div");d.className="toast";d.textContent=msg;
+  document.body.appendChild(d);setTimeout(()=>d.remove(),2200);}
+
+/* ---------- 로컬 저장 ---------- */
+const LS = {
+  get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},
+  set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},
+};
+
+/* ============================================================
+   백엔드
+   ============================================================ */
+class LocalBackend {
+  constructor(){ this.kind="local"; }
+  async init(){ return true; }
+  _r(c){ return LS.get("lb_room_"+c, null); }
+  async getRoom(c){ return this._r(c); }
+  async setRoom(c,state){ LS.set("lb_room_"+c,{code:c,state,updated_at:nowISO()}); return true; }
+  async addAnswer(room,qid,value,cid){
+    const k="lb_ans_"+room; const a=LS.get(k,[]);
+    a.push({id:Date.now()+Math.random(),room,qid,value,cid,created_at:nowISO()});
+    LS.set(k,a.slice(-3000)); return true;
+  }
+  async getAnswers(room,qid){ return LS.get("lb_ans_"+room,[]).filter(x=>x.qid===qid); }
+  async clearAnswers(room,qid){
+    const k="lb_ans_"+room; LS.set(k, LS.get(k,[]).filter(x=>x.qid!==qid)); return true;
+  }
+  onAnswers(){ return ()=>{}; }
+}
+
+class SupaBackend {
+  constructor(url,key){ this.kind="supabase"; this.url=url.replace(/\/+$/,""); this.key=key; }
+  async init(){
+    const m = await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm");
+    this.sb = m.createClient(this.url,this.key,{auth:{persistSession:false},realtime:{params:{eventsPerSecond:12}}});
+    const {error} = await this.sb.from("poll_rooms").select("code").limit(1);
+    if(error) throw new Error(error.message);
+    return true;
+  }
+  async getRoom(c){
+    const {data,error}=await this.sb.from("poll_rooms").select("*").eq("code",c).maybeSingle();
+    if(error) throw new Error(error.message); return data;
+  }
+  async setRoom(c,state){
+    const {error}=await this.sb.from("poll_rooms").upsert({code:c,state,updated_at:nowISO()});
+    if(error) throw new Error(error.message); return true;
+  }
+  async addAnswer(room,qid,value,cid){
+    const {error}=await this.sb.from("poll_answers").insert({room,qid,value,cid});
+    if(error) throw new Error(error.message); return true;
+  }
+  async getAnswers(room,qid){
+    const {data,error}=await this.sb.from("poll_answers").select("*")
+      .eq("room",room).eq("qid",qid).order("created_at",{ascending:true}).limit(3000);
+    if(error) throw new Error(error.message); return data||[];
+  }
+  async clearAnswers(room,qid){
+    const {error}=await this.sb.from("poll_answers").delete().eq("room",room).eq("qid",qid);
+    if(error) throw new Error(error.message); return true;
+  }
+  onAnswers(room,cb){
+    const ch=this.sb.channel("ans_"+room)
+      .on("postgres_changes",{event:"INSERT",schema:"public",table:"poll_answers",filter:"room=eq."+room},cb)
+      .subscribe();
+    return ()=>{ try{this.sb.removeChannel(ch)}catch(e){} };
+  }
+}
+
+/* ============================================================
+   상태
+   ============================================================ */
+const QTYPES = {
+  choice:{name:"객관식 투표",desc:"보기 중 선택 → 실시간 %·인원수 막대그래프",icon:"📊"},
+  scale :{name:"척도 평가",  desc:"1~N점 선택 → 평균 점수와 분포 표시",       icon:"📈"},
+  word  :{name:"워드클라우드",desc:"단어 입력 → 많이 나온 단어가 크게 표시",   icon:"☁️"},
+  open  :{name:"자유 의견",  desc:"문장 입력 → 익명 카드로 실시간 나열",       icon:"💬"},
+};
+
+const params = new URLSearchParams(location.search);
+const S = {
+  be:null,
+  room: (params.get("r")||"").toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,6),
+  cid: LS.get("pv_cid",null) || (()=>{const v=uid();LS.set("pv_cid",v);return v})(),
+  deck: LS.get("pv_deck", null),
+  view: "loading",
+  roomState: null,
+  answers: [],
+  hostRoom: LS.get("pv_hostroom", null),
+  demo: params.get("demo")==="1",
+  submitted: {},
+};
+
+function defaultDeck(){
+  return {name:"기본 질문 세트", questions:[
+    {id:uid(),type:"choice",title:"오늘 교육에서 가장 기대하는 것은 무엇인가요?",
+      options:["실무에 바로 쓸 수 있는 스킬","팀원과의 소통 방법","나 자신에 대한 이해","다른 부서 사람들과의 교류"]},
+    {id:uid(),type:"scale",title:"현재 우리 팀의 소통 수준을 점수로 표현한다면?",
+      min:1,max:5,minLabel:"매우 낮다",maxLabel:"매우 높다"},
+    {id:uid(),type:"word",title:"'좋은 리더' 하면 떠오르는 단어를 적어주세요",maxWords:3},
+    {id:uid(),type:"open",title:"우리 조직에서 딱 하나만 바꿀 수 있다면?",maxLen:150},
+  ]};
+}
+if(!S.deck) { S.deck = defaultDeck(); LS.set("pv_deck",S.deck); }
+const saveDeck = ()=>LS.set("pv_deck",S.deck);
+const newCode = ()=>{const C="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";let s="";for(let i=0;i<5;i++)s+=C[Math.floor(Math.random()*C.length)];return s;};
+
+/* ============================================================
+   집계
+   ============================================================ */
+function dedupeLatest(rows){ // 같은 참가자의 마지막 응답만
+  const m=new Map(); rows.forEach(r=>m.set(r.cid||r.id,r)); return [...m.values()];
+}
+function tally(q,rows){
+  if(!q) return {n:0};
+  if(q.type==="choice"){
+    const rs=dedupeLatest(rows); const c={}; (q.options||[]).forEach(o=>c[o]=0);
+    rs.forEach(r=>{ if(r.value in c) c[r.value]++; });
+    const n=rs.length;
+    return {n, items:(q.options||[]).map((o,i)=>({label:o,count:c[o],pct:n?Math.round(c[o]/n*1000)/10:0,color:SERIES[i%SERIES.length]}))};
+  }
+  if(q.type==="scale"){
+    const rs=dedupeLatest(rows).map(r=>parseInt(r.value,10)).filter(v=>!isNaN(v));
+    const min=q.min??1,max=q.max??5; const c={}; for(let i=min;i<=max;i++)c[i]=0;
+    rs.forEach(v=>{if(v in c)c[v]++});
+    const n=rs.length, avg=n?rs.reduce((a,b)=>a+b,0)/n:0;
+    const mx=Math.max(1,...Object.values(c));
+    return {n,avg,min,max,items:Object.keys(c).map((k,i)=>({label:k,count:c[k],h:c[k]/mx*100,pct:n?Math.round(c[k]/n*100):0,color:SERIES[i%SERIES.length]}))};
+  }
+  if(q.type==="word"){
+    const c=new Map();
+    rows.forEach(r=>{const w=String(r.value||"").trim(); if(!w)return;
+      const k=w.toLowerCase(); const e=c.get(k)||{w,n:0}; e.n++; c.set(k,e);});
+    const arr=[...c.values()].sort((a,b)=>b.n-a.n).slice(0,60);
+    const mx=arr.length?arr[0].n:1;
+    return {n:rows.length, uniq:arr.length, items:arr.map((e,i)=>({...e,r:e.n/mx,color:SERIES[i%SERIES.length]}))};
+  }
+  return {n:rows.length, items:[...rows].reverse().map((r,i)=>({text:r.value,at:r.created_at,color:SERIES[i%SERIES.length]}))};
+}
+
+/* ============================================================
+   렌더 - 결과 시각화 (발표 화면)
+   ============================================================ */
+function vizHTML(q,t){
+  if(!q) return "";
+  if(t.n===0) return `<div class="blind"><div class="em">⏳</div><div class="m">응답을 기다리는 중입니다</div>
+    <div class="tiny">QR을 스캔해 참여해 주세요</div></div>`;
+  if(q.type==="choice") return t.items.map(it=>`
+    <div class="bar"><div class="barlbl"><span class="t">${esc(it.label)}</span>
+      <span class="v">${it.pct}%<small>${it.count}명</small></span></div>
+      <div class="bartrack"><div class="barfill" style="width:${Math.max(it.pct,0)}%;background:${it.color}"></div></div></div>`).join("");
+  if(q.type==="scale") return `
+    <div class="scalewrap">${t.items.map(it=>`<div class="scalecol">
+      <div class="scalen">${it.count}</div>
+      <div class="scalebar" style="height:${it.h}%;background:${it.color}"></div>
+      <div class="scalen" style="color:var(--tx)">${it.label}</div></div>`).join("")}</div>
+    <div class="avgbox"><span class="tiny" style="font-size:14px;font-weight:800">평균</span>
+      <span class="big">${t.avg.toFixed(2)}</span>
+      <span class="muted" style="font-size:17px;font-weight:700">/ ${t.max}점 · 응답 ${t.n}명</span></div>`;
+  if(q.type==="word"){
+    const k=Math.max(30,Math.min(92,96-t.items.length*1.15));
+    return `<div class="cloud">${t.items.map((it,i)=>{
+      const size=18+Math.pow(it.r,.58)*k;
+      return `<span class="word" style="font-size:${size.toFixed(1)}px;color:${it.color};animation-delay:${Math.min(i*22,700)}ms">${esc(it.w)}<small>${it.n}</small></span>`;
+    }).join("")}</div>`;
+  }
+  return `<div class="board">${t.items.map((it,i)=>`
+    <div class="note" style="border-left-color:${it.color};animation-delay:${Math.min(i*35,600)}ms">${esc(it.text)}</div>`).join("")}</div>`;
+}
+
+/* ============================================================
+   뷰: 로딩 / 설정
+   ============================================================ */
+function viewLoading(msg="연결 중…"){
+  app.innerHTML=`<div class="shell"><div style="padding:90px 0;text-align:center">
+    <div class="pulse" style="background:var(--ac)"></div>
+    <div class="muted" style="font-weight:700">${esc(msg)}</div></div></div>`;
+}
+
+function viewSetup(err){
+  app.innerHTML=`<div class="shell">
+    ${brandHTML()}
+    <div class="card sec">
+      <h2 style="color:var(--ac3)">⚙️ 아직 서버가 연결되지 않았습니다</h2>
+      <p class="muted" style="font-size:14px;line-height:1.7;margin:0 0 14px">
+        이 도구는 <b>Supabase</b>(무료)를 데이터 저장소로 사용합니다.
+        아래에 값을 넣고 <b>연결 테스트</b>를 하면 이 브라우저에서 바로 쓸 수 있고,
+        참가자들도 쓰려면 파일 상단 <code class="k">CONFIG</code>의 두 줄을 같은 값으로 바꿔 다시 올려주세요.</p>
+      ${err?`<div class="card" style="border-color:#4a2a34;background:rgba(255,92,122,.07);margin-bottom:14px">
+        <b style="color:var(--ac4);font-size:13px">연결 실패</b>
+        <div class="tiny" style="margin-top:6px;color:#FFA8B8">${esc(err)}</div></div>`:""}
+      <div class="fld"><label>Project URL</label>
+        <input class="inp" id="sUrl" placeholder="https://xxxxxxxx.supabase.co" value="${esc(LS.get("pv_url",""))}"></div>
+      <div class="fld"><label>Publishable key 또는 anon key</label>
+        <input class="inp" id="sKey" placeholder="sb_publishable_... 또는 eyJhbGciOi..." value="${esc(LS.get("pv_key",""))}"></div>
+      <div class="row wrap">
+        <button class="btn pri" id="bTest">연결 테스트 &amp; 저장</button>
+        <button class="btn" id="bDemo">데모 모드로 둘러보기</button>
+      </div>
+      <p class="tiny" style="margin:14px 0 0;line-height:1.7">
+        값 위치: Supabase 대시보드 → 좌측 <b>Project Settings</b> → <b>API Keys</b>.
+        <b>Publishable key</b>(sb_publishable_…) 또는 <b>anon</b>(eyJ…) 중 보이는 것을 넣으세요.
+        <b style="color:var(--ac4)">service_role / Secret key는 절대 사용 금지</b>입니다.<br>
+        데이터베이스 표(table)를 아직 안 만들었다면 저장소에 들어 있는 <b>setup.sql</b>을 SQL Editor에 붙여넣고 Run 하세요.</p>
+    </div>
+  </div>`;
+  $("#bTest").onclick=async()=>{
+    const u=$("#sUrl").value.trim(), k=$("#sKey").value.trim();
+    if(!u||!k) return toast("두 값을 모두 입력해 주세요");
+    viewLoading("연결 확인 중…");
+    try{ const be=new SupaBackend(u,k); await be.init();
+      LS.set("pv_url",u); LS.set("pv_key",k); S.be=be; toast("연결 성공"); boot();
+    }catch(e){ viewSetup(e.message||String(e)); }
+  };
+  $("#bDemo").onclick=()=>{ location.href=location.href.split(/[?#]/)[0]+"?demo=1"; };
+}
+
+const brandHTML=()=>`<div class="brand"><div class="logo">Q</div>
+  <div><h1>실시간 인터랙티브 투표</h1><p>익명 · QR 접속 · 200명 이상 동시 참여</p></div></div>`;
+
+/* ============================================================
+   뷰: 강사 홈
+   ============================================================ */
+function viewHome(){
+  const qs=S.deck.questions;
+  app.innerHTML=`<div class="shell">
+    ${brandHTML()}
+    ${S.demo?`<div class="card sec" style="border-color:#4a3a2a;background:rgba(255,176,32,.06)">
+      <b style="color:var(--ac3);font-size:13px">🧪 데모 모드</b>
+      <div class="tiny" style="margin-top:6px;line-height:1.6;color:#FFD79A">
+        이 기기 안에서만 동작합니다(브라우저 탭 2개로 강사·참가자 화면을 동시에 테스트 가능).
+        실제 교육에서는 서버 연결 후 사용하세요.</div></div>`:""}
+
+    <div class="card sec">
+      <div class="row wrap" style="justify-content:space-between;margin-bottom:14px">
+        <div><div style="font-size:16px;font-weight:800">${esc(S.deck.name)}</div>
+          <div class="tiny" style="margin-top:3px">질문 ${qs.length}개</div></div>
+        <div class="row">
+          <button class="btn sm" id="bRename">이름 변경</button>
+          <button class="btn sm" id="bExport">내보내기</button>
+          <button class="btn sm" id="bImport">불러오기</button>
+        </div>
+      </div>
+      <div id="qlist">${qs.map((q,i)=>qItemHTML(q,i,qs.length)).join("")||
+        `<div class="tiny" style="padding:20px;text-align:center">질문이 없습니다. 아래에서 추가해 주세요.</div>`}</div>
+      <button class="btn pri" id="bAdd" style="width:100%;margin-top:12px">＋ 질문 추가</button>
+    </div>
+
+    <div class="card">
+      <h2>세션 시작</h2>
+      <div class="row wrap" style="gap:12px">
+        <div class="grow" style="min-width:180px">
+          <label class="tiny" style="display:block;margin-bottom:6px;font-weight:700">방 코드</label>
+          <input class="inp" id="iRoom" value="${esc(S.hostRoom||newCode())}" maxlength="6" style="letter-spacing:3px;font-weight:800;text-transform:uppercase">
+        </div>
+        <button class="btn" id="bNewCode" style="align-self:flex-end">새 코드</button>
+        <button class="btn pri" id="bStart" style="align-self:flex-end;padding:13px 26px" ${qs.length?"":"disabled"}>진행 화면 열기 ▶</button>
+      </div>
+      <p class="tiny" style="margin:14px 0 0;line-height:1.7">
+        진행 화면에서 QR과 접속 주소가 크게 표시됩니다. 참가자는 로그인·설치 없이 접속하며,
+        이름·이메일 등 어떤 개인정보도 수집하지 않습니다.</p>
+    </div>
+  </div>`;
+
+  $("#bAdd").onclick=()=>editQ(null);
+  $("#bRename").onclick=()=>{const v=prompt("질문 세트 이름",S.deck.name); if(v){S.deck.name=v.trim()||S.deck.name;saveDeck();viewHome();}};
+  $("#bExport").onclick=()=>{
+    const b=new Blob([JSON.stringify(S.deck,null,2)],{type:"application/json"});
+    const a=document.createElement("a"); a.href=URL.createObjectURL(b);
+    a.download=`질문세트_${S.deck.name.replace(/\s+/g,"_")}.json`; a.click(); toast("파일로 저장했습니다");
+  };
+  $("#bImport").onclick=()=>{
+    const f=document.createElement("input"); f.type="file"; f.accept=".json,application/json";
+    f.onchange=()=>{const r=new FileReader(); r.onload=()=>{try{
+      const d=JSON.parse(r.result);
+      if(!d.questions||!Array.isArray(d.questions)) throw 0;
+      d.questions.forEach(q=>{ if(!q.id) q.id=uid(); });
+      S.deck=d; saveDeck(); viewHome(); toast("불러왔습니다");
+    }catch(e){toast("형식이 올바르지 않습니다")}}; r.readAsText(f.files[0]);};
+    f.click();
+  };
+  $("#bNewCode").onclick=()=>{$("#iRoom").value=newCode();};
+  $("#bStart").onclick=async()=>{
+    const c=$("#iRoom").value.trim().toUpperCase().replace(/[^A-Z0-9]/g,"");
+    if(c.length<3) return toast("방 코드는 3자 이상");
+    S.hostRoom=c; LS.set("pv_hostroom",c); S.room=c;
+    await S.be.setRoom(c,{activeQid:null,open:false,revealed:true,phone:false,question:null,deckName:S.deck.name});
+    S.view="stage"; S.idx=0; renderStage(); startHostLoop();
+  };
+  $("#qlist").onclick=e=>{
+    const b=e.target.closest("[data-a]"); if(!b) return;
+    const i=+b.dataset.i, a=b.dataset.a, qs=S.deck.questions;
+    if(a==="edit") editQ(i);
+    else if(a==="del"){ if(confirm("이 질문을 삭제할까요?")){qs.splice(i,1);saveDeck();viewHome();} }
+    else if(a==="up"&&i>0){ [qs[i-1],qs[i]]=[qs[i],qs[i-1]]; saveDeck(); viewHome(); }
+    else if(a==="dn"&&i<qs.length-1){ [qs[i+1],qs[i]]=[qs[i],qs[i+1]]; saveDeck(); viewHome(); }
+  };
+}
+
+function qItemHTML(q,i,n){
+  const t=QTYPES[q.type]||QTYPES.choice;
+  let meta="";
+  if(q.type==="choice") meta=`<span class="chip">보기 ${q.options?.length||0}개</span>`;
+  if(q.type==="scale")  meta=`<span class="chip">${q.min??1}~${q.max??5}점</span>`;
+  if(q.type==="word")   meta=`<span class="chip">1인 최대 ${q.maxWords??3}개</span>`;
+  if(q.type==="open")   meta=`<span class="chip">${q.maxLen??150}자</span>`;
+  return `<div class="qitem"><div class="qnum">${i+1}</div>
+    <div class="qbody"><div class="qtitle">${esc(q.title)}</div>
+      <div class="qmeta"><span class="chip g">${t.icon} ${t.name}</span>${meta}</div></div>
+    <div class="qacts">
+      <button class="iconbtn" data-a="up" data-i="${i}" ${i===0?"disabled":""}>↑</button>
+      <button class="iconbtn" data-a="dn" data-i="${i}" ${i===n-1?"disabled":""}>↓</button>
+      <button class="iconbtn" data-a="edit" data-i="${i}">✎</button>
+      <button class="iconbtn" data-a="del" data-i="${i}">🗑</button>
+    </div></div>`;
+}
+
+/* ---------- 질문 편집 모달 ---------- */
+function editQ(idx){
+  const isNew = idx===null;
+  const q = isNew ? {id:uid(),type:"choice",title:"",options:["","",""],min:1,max:5,minLabel:"전혀 아니다",maxLabel:"매우 그렇다",maxWords:3,maxLen:150}
+                  : JSON.parse(JSON.stringify(S.deck.questions[idx]));
+  q.options ||= ["","",""]; q.min??=1; q.max??=5; q.minLabel??="전혀 아니다"; q.maxLabel??="매우 그렇다"; q.maxWords??=3; q.maxLen??=150;
+
+  const m=document.createElement("div"); m.className="modal"; document.body.appendChild(m);
+  const draw=()=>{
+    m.innerHTML=`<div class="box">
+      <h3>${isNew?"질문 추가":"질문 수정"}</h3>
+      <div class="fld"><label>질문 유형</label>
+        <div class="typegrid">${Object.entries(QTYPES).map(([k,v])=>`
+          <button class="typebtn ${q.type===k?"on":""}" data-t="${k}">
+            <b>${v.icon} ${v.name}</b><span>${v.desc}</span></button>`).join("")}</div></div>
+      <div class="fld"><label>질문 내용</label>
+        <textarea class="inp" id="qT" rows="2" placeholder="참가자에게 보여줄 질문을 입력하세요">${esc(q.title)}</textarea></div>
+      ${q.type==="choice"?`
+        <div class="fld"><label>보기 (2~10개)</label>
+          <div id="opts">${q.options.map((o,i)=>`<div class="row" style="margin-bottom:7px">
+            <input class="inp" data-oi="${i}" value="${esc(o)}" placeholder="보기 ${i+1}">
+            <button class="iconbtn" data-ro="${i}">✕</button></div>`).join("")}</div>
+          <button class="btn sm" id="bAddOpt" style="margin-top:4px">＋ 보기 추가</button></div>`:""}
+      ${q.type==="scale"?`
+        <div class="row" style="gap:10px">
+          <div class="fld grow"><label>최소값</label><input class="inp" id="qMin" type="number" value="${q.min}"></div>
+          <div class="fld grow"><label>최대값</label><input class="inp" id="qMax" type="number" value="${q.max}"></div></div>
+        <div class="row" style="gap:10px">
+          <div class="fld grow"><label>최소 라벨</label><input class="inp" id="qMinL" value="${esc(q.minLabel)}"></div>
+          <div class="fld grow"><label>최대 라벨</label><input class="inp" id="qMaxL" value="${esc(q.maxLabel)}"></div></div>`:""}
+      ${q.type==="word"?`
+        <div class="fld"><label>1인당 입력 가능 단어 수</label>
+          <input class="inp" id="qMW" type="number" min="1" max="5" value="${q.maxWords}"></div>`:""}
+      ${q.type==="open"?`
+        <div class="fld"><label>최대 글자 수</label>
+          <input class="inp" id="qML" type="number" min="20" max="500" value="${q.maxLen}"></div>`:""}
+      <div class="row" style="justify-content:flex-end;margin-top:18px">
+        <button class="btn" id="bCancel">취소</button>
+        <button class="btn pri" id="bSave">저장</button></div>
+    </div>`;
+    m.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{sync();q.type=b.dataset.t;draw();});
+    m.querySelectorAll("[data-ro]").forEach(b=>b.onclick=()=>{sync();
+      if(q.options.length<=2) return toast("보기는 최소 2개");
+      q.options.splice(+b.dataset.ro,1);draw();});
+    const ao=$("#bAddOpt",m); if(ao) ao.onclick=()=>{sync(); if(q.options.length>=10)return toast("최대 10개"); q.options.push("");draw();};
+    $("#bCancel",m).onclick=()=>m.remove();
+    $("#bSave",m).onclick=()=>{
+      sync();
+      if(!q.title.trim()) return toast("질문 내용을 입력해 주세요");
+      if(q.type==="choice"){ q.options=q.options.map(o=>o.trim()).filter(Boolean);
+        if(q.options.length<2) return toast("보기를 2개 이상 입력해 주세요"); }
+      if(q.type==="scale"&&q.max<=q.min) return toast("최대값이 최소값보다 커야 합니다");
+      if(isNew) S.deck.questions.push(q); else S.deck.questions[idx]=q;
+      saveDeck(); m.remove(); viewHome(); toast("저장했습니다");
+    };
+  };
+  const sync=()=>{
+    const t=$("#qT",m); if(t) q.title=t.value;
+    m.querySelectorAll("[data-oi]").forEach(i=>q.options[+i.dataset.oi]=i.value);
+    const g=(id,f)=>{const e=$(id,m); if(e) f(e.value);};
+    g("#qMin",v=>q.min=parseInt(v)||1); g("#qMax",v=>q.max=parseInt(v)||5);
+    g("#qMinL",v=>q.minLabel=v); g("#qMaxL",v=>q.maxLabel=v);
+    g("#qMW",v=>q.maxWords=Math.max(1,Math.min(5,parseInt(v)||3)));
+    g("#qML",v=>q.maxLen=Math.max(20,Math.min(500,parseInt(v)||150)));
+  };
+  draw();
+}
+
+/* ============================================================
+   뷰: 진행(발표) 화면
+   ============================================================ */
+let hostTimer=null, hostUnsub=null, hostDirty=true;
+function startHostLoop(){
+  stopHostLoop();
+  if(S.be.onAnswers) hostUnsub=S.be.onAnswers(S.room,()=>{hostDirty=true;});
+  hostTimer=setInterval(async()=>{
+    const q=curQ(); if(!q) return;
+    try{ const rows=await S.be.getAnswers(S.room,q.id);
+      if(rows.length!==S.answers.length||hostDirty){ S.answers=rows; hostDirty=false; paintViz(); }
+    }catch(e){}
+  },1500);
+}
+function stopHostLoop(){ if(hostTimer)clearInterval(hostTimer); hostTimer=null; if(hostUnsub)hostUnsub(); hostUnsub=null; }
+const curQ = ()=>S.deck.questions[S.idx]||null;
+
+async function pushRoom(patch){
+  const q=curQ();
+  const st={activeQid:q?q.id:null, open:true, revealed:true, phone:false, deckName:S.deck.name,
+    question:q?JSON.parse(JSON.stringify(q)):null, ...(S.rs||{}), ...patch};
+  if(q){ st.activeQid=q.id; st.question=JSON.parse(JSON.stringify(q)); }
+  S.rs=st; await S.be.setRoom(S.room,st);
+}
+
+function joinURL(){ const u=new URL(location.href); u.search="?r="+S.room+(S.demo?"&demo=1":""); u.hash=""; return u.toString(); }
+
+function renderStage(){
+  const q=curQ(), n=S.deck.questions.length;
+  app.innerHTML=`<div class="stage">
+    <div class="stagetop">
+      <button class="btn sm" id="bBack">← 목록</button>
+      <span class="pill">${S.idx+1} / ${n}</span>
+      <span class="chip g">🔒 익명 응답</span>
+      <div class="grow"></div>
+      <span class="chip o" id="stConn">연결됨</span>
+      <button class="btn sm" id="bFull">전체화면</button>
+    </div>
+    <div class="stagemain">
+      <div class="side">
+        <div class="qrbox" id="qr"></div>
+        <div class="joinurl">${esc(joinURL().replace(/^https?:\/\//,""))}</div>
+        <div class="codebig">${esc(S.room)}</div>
+        <div class="counter"><div class="n" id="cnt">0</div><div class="l">응답 수</div></div>
+      </div>
+      <div class="mainpanel">
+        <h2 class="qhead">${q?esc(q.title):"질문이 없습니다"}</h2>
+        <div class="viz" id="viz"></div>
+      </div>
+    </div>
+    <div class="stagebar">
+      <button class="btn" id="bPrev" ${S.idx===0?"disabled":""}>◀ 이전</button>
+      <button class="btn pri" id="bNext" ${S.idx>=n-1?"disabled":""}>다음 ▶</button>
+      <div style="width:8px"></div>
+      <button class="btn" id="bOpen">${(S.rs?.open??true)?"응답 마감":"응답 열기"}</button>
+      <button class="btn" id="bReveal">${(S.rs?.revealed??true)?"결과 가리기":"결과 보이기"}</button>
+      <button class="btn" id="bPhone">휴대폰에 결과 표시: ${(S.rs?.phone??false)?"켬":"끔"}</button>
+      <div class="grow"></div>
+      <button class="btn danger" id="bClear">이 질문 응답 초기화</button>
+    </div>
+  </div>`;
+  try{ new QRCode($("#qr"),{text:joinURL(),width:230,height:230,correctLevel:QRCode.CorrectLevel.M}); }
+  catch(e){ $("#qr").innerHTML=`<div style="color:#101828;font-size:12px;padding:20px;text-align:center">QR 생성 실패<br>주소를 직접 안내해 주세요</div>`; }
+
+  $("#bBack").onclick=()=>{stopHostLoop();S.view="home";viewHome();};
+  $("#bFull").onclick=()=>{ document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen(); };
+  $("#bPrev").onclick=()=>go(S.idx-1);
+  $("#bNext").onclick=()=>go(S.idx+1);
+  $("#bOpen").onclick=async e=>{ const v=!(S.rs?.open??true); await pushRoom({open:v});
+    e.target.textContent=v?"응답 마감":"응답 열기"; toast(v?"응답을 다시 받습니다":"응답을 마감했습니다"); };
+  $("#bReveal").onclick=async e=>{ const v=!(S.rs?.revealed??true); await pushRoom({revealed:v});
+    e.target.textContent=v?"결과 가리기":"결과 보이기"; paintViz(); };
+  $("#bPhone").onclick=async e=>{ const v=!(S.rs?.phone??false); await pushRoom({phone:v});
+    e.target.textContent="휴대폰에 결과 표시: "+(v?"켬":"끔"); };
+  $("#bClear").onclick=async()=>{ const q=curQ(); if(!q)return;
+    if(!confirm("이 질문의 응답을 모두 지울까요?")) return;
+    await S.be.clearAnswers(S.room,q.id); S.answers=[]; paintViz(); toast("초기화했습니다"); };
+  go(S.idx,true);
+}
+
+async function go(i,first){
+  const n=S.deck.questions.length; if(i<0||i>=n) return;
+  S.idx=i; S.answers=[];
+  if(!first) renderStage();
+  await pushRoom({open:true});
+  try{ S.answers=await S.be.getAnswers(S.room,curQ().id); }catch(e){}
+  paintViz();
+}
+
+function paintViz(){
+  const q=curQ(); if(!q) return;
+  const t=tally(q,S.answers);
+  const c=$("#cnt"); if(c) c.textContent = q.type==="choice"||q.type==="scale" ? t.n : S.answers.length;
+  const v=$("#viz"); if(!v) return;
+  if(!(S.rs?.revealed??true)){
+    v.className="viz empty";
+    v.innerHTML=`<div class="blind"><div class="em">🙈</div><div class="m">결과를 잠시 가려두었습니다</div>
+      <div class="tiny">응답 ${S.answers.length}건 수집됨 · 아래 [결과 보이기]로 공개</div></div>`; return;
+  }
+  v.className="viz "+(t.n===0?"empty":q.type);
+  v.innerHTML=vizHTML(q,t);
+}
+
+/* ============================================================
+   뷰: 참가자
+   ============================================================ */
+let pvTimer=null, pvLastQ=null, pvSel=null, pvWords=[];
+async function viewParticipant(){
+  stopHostLoop();
+  const tick=async()=>{
+    try{
+      const r=await S.be.getRoom(S.room);
+      const st=r?.state||null;
+      const changed = JSON.stringify([st?.activeQid,st?.open,st?.revealed,st?.phone])!==JSON.stringify(pvLastQ);
+      if(changed){ pvLastQ=[st?.activeQid,st?.open,st?.revealed,st?.phone]; S.rs=st;
+        if(st?.activeQid!==S.pvQid){ S.pvQid=st?.activeQid; pvSel=null; pvWords=[]; }
+        drawP(st);
+      } else if(st?.phone && st?.revealed && S.submitted[S.pvQid]) { refreshMini(); }
+    }catch(e){}
+  };
+  await tick(); if(pvTimer)clearInterval(pvTimer); pvTimer=setInterval(tick,2500);
+}
+
+function pvShell(inner,rc){
+  app.innerHTML=`<div class="pv"><div class="pvtop">
+    <span class="rc">${esc(rc||S.room)}</span>
+    <span class="anon">🔒 익명 · 이름 수집 안 함</span></div>
+    <div class="pvbody">${inner}</div></div>`;
+}
+
+function drawP(st){
+  if(!st||!st.question){
+    pvShell(`<div class="waitbox"><div class="pulse"></div>
+      <h2 style="font-size:20px;margin:0 0 8px;font-weight:800">접속되었습니다</h2>
+      <p style="color:#6B7A99;font-size:14.5px;margin:0;line-height:1.6">
+        강사가 첫 번째 질문을 열면<br>이 화면에 자동으로 나타납니다.</p></div>`);
+    return;
+  }
+  const q=st.question;
+  if(S.submitted[q.id]){ drawDone(q,st); return; }
+  if(st.open===false){
+    pvShell(`<div class="waitbox"><div style="font-size:52px;margin-bottom:16px">⛔</div>
+      <h2 style="font-size:20px;margin:0 0 8px;font-weight:800">응답이 마감되었습니다</h2>
+      <p style="color:#6B7A99;font-size:14.5px;margin:0">다음 질문을 기다려 주세요.</p></div>`);
+    return;
+  }
+  let body="";
+  if(q.type==="choice"){
+    body=`<p class="pvsub">하나를 선택해 주세요</p>
+      ${(q.options||[]).map((o,i)=>`<button class="opt ${pvSel===o?"on":""}" data-o="${esc(o)}">
+        <span class="dot"></span><span>${esc(o)}</span></button>`).join("")}
+      <button class="pbtn" id="pSub" style="margin-top:12px" ${pvSel?"":"disabled"}>제출하기</button>`;
+  } else if(q.type==="scale"){
+    const min=q.min??1,max=q.max??5,arr=[];
+    for(let i=min;i<=max;i++)arr.push(i);
+    body=`<p class="pvsub">점수를 선택해 주세요</p>
+      <div class="scaleopts">${arr.map(v=>`<button class="sopt ${String(pvSel)===String(v)?"on":""}" data-o="${v}">${v}</button>`).join("")}</div>
+      <div class="scalelbl"><span>${esc(q.minLabel||"낮음")}</span><span>${esc(q.maxLabel||"높음")}</span></div>
+      <button class="pbtn" id="pSub" ${pvSel!==null?"":"disabled"}>제출하기</button>`;
+  } else if(q.type==="word"){
+    const mw=q.maxWords??3;
+    body=`<p class="pvsub">떠오르는 단어를 최대 ${mw}개까지 입력해 주세요</p>
+      ${pvWords.length?`<div class="wordchips">${pvWords.map((w,i)=>`<span class="wchip">${esc(w)} <b data-rw="${i}" style="cursor:pointer;opacity:.6">✕</b></span>`).join("")}</div>`:""}
+      ${pvWords.length<mw?`<input class="pinp" id="pW" maxlength="20" placeholder="단어 입력 (예: 경청)" autocomplete="off">
+      <button class="pbtn ghost" id="pAddW" style="margin-bottom:12px">＋ 단어 담기</button>`:
+      `<p class="pvsub" style="margin-bottom:12px">최대 개수까지 입력하셨습니다</p>`}
+      <button class="pbtn" id="pSub" ${pvWords.length?"":"disabled"}>제출하기 (${pvWords.length}개)</button>`;
+  } else {
+    const ml=q.maxLen??150;
+    body=`<p class="pvsub">자유롭게 의견을 남겨주세요 · 최대 ${ml}자 · 익명입니다</p>
+      <textarea class="pinp" id="pT" maxlength="${ml}" placeholder="여기에 입력해 주세요"></textarea>
+      <div class="scalelbl"><span id="pCnt">0 / ${ml}</span><span></span></div>
+      <button class="pbtn" id="pSub" disabled>제출하기</button>`;
+  }
+  pvShell(`<h1 class="pvq">${esc(q.title)}</h1>${body}`);
+
+  app.querySelectorAll("[data-o]").forEach(b=>b.onclick=()=>{ pvSel=b.dataset.o; drawP(st); });
+  app.querySelectorAll("[data-rw]").forEach(b=>b.onclick=()=>{ pvWords.splice(+b.dataset.rw,1); drawP(st); });
+  const aw=$("#pAddW");
+  if(aw) aw.onclick=()=>{ const e=$("#pW"); const v=(e.value||"").trim();
+    if(!v) return; if(pvWords.includes(v)) {toast("이미 담은 단어입니다"); return;}
+    pvWords.push(v); drawP(st); };
+  const wi=$("#pW"); if(wi){ wi.focus(); wi.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();aw&&aw.click();}} }
+  const ta=$("#pT"); if(ta) ta.oninput=()=>{ $("#pCnt").textContent=`${ta.value.length} / ${q.maxLen??150}`;
+    $("#pSub").disabled=!ta.value.trim(); };
+  const sb=$("#pSub"); if(sb) sb.onclick=()=>submitP(q,st);
+}
+
+async function submitP(q,st){
+  const btn=$("#pSub"); if(btn){btn.disabled=true;btn.textContent="전송 중…";}
+  try{
+    if(q.type==="word"){ for(const w of pvWords) await S.be.addAnswer(S.room,q.id,w,S.cid+"_"+uid()); }
+    else if(q.type==="open"){ const v=$("#pT").value.trim(); if(!v) throw new Error("내용을 입력해 주세요");
+      await S.be.addAnswer(S.room,q.id,v,S.cid+"_"+uid()); }
+    else { await S.be.addAnswer(S.room,q.id,String(pvSel),S.cid); }
+    S.submitted[q.id]=q.type==="word"?pvWords.join(", "):(q.type==="open"?$("#pT").value.trim():String(pvSel));
+    drawDone(q,st);
+  }catch(e){ toast(e.message||"전송에 실패했습니다. 다시 시도해 주세요");
+    if(btn){btn.disabled=false;btn.textContent="제출하기";} }
+}
+
+function drawDone(q,st){
+  pvShell(`<div class="done"><div class="ic">✓</div>
+    <h2>응답이 접수되었습니다</h2>
+    <p>결과는 앞 화면에서 함께 확인해 주세요.<br>다음 질문이 열리면 자동으로 넘어갑니다.</p>
+    ${S.submitted[q.id]?`<div class="mytag">내 응답 · ${esc(S.submitted[q.id])}</div>`:""}
+    </div><div id="mini"></div>`);
+  if(st?.phone&&st?.revealed) refreshMini();
+}
+
+async function refreshMini(){
+  const box=$("#mini"); if(!box) return;
+  const q=S.rs?.question; if(!q) return;
+  try{
+    const rows=await S.be.getAnswers(S.room,q.id); const t=tally(q,rows);
+    if(q.type==="choice"||q.type==="scale"){
+      box.innerHTML=`<div class="mres"><h4>실시간 결과 · 응답 ${t.n}명</h4>
+        ${t.items.map(it=>`<div class="mbar"><div class="mbarl"><span>${esc(it.label)}${q.type==="scale"?"점":""}</span>
+          <span>${q.type==="choice"?it.pct+"%":it.count+"명"}</span></div>
+          <div class="mbart"><div class="mbarf" style="width:${q.type==="choice"?it.pct:(t.n?it.count/t.n*100:0)}%;background:${it.color}"></div></div></div>`).join("")}
+        ${q.type==="scale"?`<div style="margin-top:14px;font-size:15px;font-weight:800">평균 ${t.avg.toFixed(2)}점</div>`:""}</div>`;
+    } else if(q.type==="word"){
+      box.innerHTML=`<div class="mres"><h4>실시간 결과 · ${t.items.length}개 단어</h4>
+        <div class="wordchips">${t.items.slice(0,25).map(it=>`<span class="wchip" style="font-size:${13+it.r*9}px">${esc(it.w)} <b>${it.n}</b></span>`).join("")}</div></div>`;
+    } else {
+      box.innerHTML=`<div class="mres"><h4>실시간 의견 · ${t.items.length}건</h4>
+        ${t.items.slice(0,20).map(it=>`<div style="padding:12px 14px;border-radius:12px;background:#fff;border:1px solid #E4E9F2;margin-bottom:8px;font-size:14.5px;line-height:1.55">${esc(it.text)}</div>`).join("")}</div>`;
+    }
+  }catch(e){}
+}
+
+/* ============================================================
+   부팅
+   ============================================================ */
+async function boot(){
+  viewLoading();
+  if(!S.be){
+    if(S.demo){ S.be=new LocalBackend(); await S.be.init(); }
+    else{
+      const u=LS.get("pv_url","")||CONFIG.SUPABASE_URL, k=LS.get("pv_key","")||CONFIG.SUPABASE_ANON_KEY;
+      if(!u||!k||u.startsWith("PASTE")||k.startsWith("PASTE")){ viewSetup(); return; }
+      try{ const be=new SupaBackend(u,k); await be.init(); S.be=be; }
+      catch(e){ viewSetup(e.message||String(e)); return; }
+    }
+  }
+  if(S.room){ S.view="participant"; viewParticipant(); }
+  else { S.view="home"; viewHome(); }
+}
+window.addEventListener("beforeunload",()=>{stopHostLoop(); if(pvTimer)clearInterval(pvTimer);});
+boot();
+</script>
+</body>
+</html>
